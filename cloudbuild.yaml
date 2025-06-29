@@ -37,3 +37,5 @@ steps:
     chmod +x gradlew
     ./gradlew assembleDebug --no-daemon
 
+OPTIONS
+logging: CLOUD_LOGGING_ONLY
