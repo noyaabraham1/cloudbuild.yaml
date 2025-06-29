@@ -37,5 +37,7 @@ steps:
     chmod +x gradlew
     ./gradlew assembleDebug --no-daemon
 
-OPTIONS
-logging: CLOUD_LOGGING_ONLY
+options:
+  machineType: E2_STANDARD_2
+  diskSizeGb: 50
+  logging: CLOUD_LOGGING_ONLY
