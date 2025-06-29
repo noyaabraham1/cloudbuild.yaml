@@ -1,0 +1,62 @@
+steps:
+  # Install Node.js dependencies
+  - name: 'node:20'
+    entrypoint: 'npm'
+    args: ['install', '--legacy-peer-deps']
+
+  # Build web assets
+  - name: 'node:20'
+    entrypoint: 'npm'
+    args: ['run', 'build']
+
+  # Install Android SDK and build tools
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'run'
+      - '--rm'
+      - '-v'
+      - '/workspace:/workspace'
+      - '-w'
+      - '/workspace'
+      - 'androidsdk/android-sdk-cmdline-tools:latest'
+      - 'sh'
+      - '-c'
+      - |
+        # Install required Android components
+        yes | sdkmanager --licenses
+        sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+        
+        # Install Node.js and dependencies
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+        apt-get install -y nodejs
+        
+        # Install Capacitor CLI
+        npm install -g @capacitor/cli
+        
+        # Sync Capacitor
+        npx cap sync android
+        
+        # Build APK
+        cd android
+        chmod +x gradlew
+        ./gradlew assembleDebug --stacktrace
+
+  # Copy APK to artifacts
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args:
+      - 'cp'
+      - 'android/app/build/outputs/apk/debug/app-debug.apk'
+      - 'gs://${_BUCKET_NAME}/besmi-android-${BUILD_ID}.apk'
+
+substitutions:
+  _BUCKET_NAME: 'besmi-builds'
+
+options:
+  machineType: 'E2_STANDARD_4'
+  diskSizeGb: '50'
+
+artifacts:
+  objects:
+    location: 'gs://${_BUCKET_NAME}'
+    paths:
+      - 'android/app/build/outputs/apk/debug/app-debug.apk'
