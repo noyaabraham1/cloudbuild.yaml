@@ -1,0 +1,102 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Create package.json if missing
+      run: |
+        if [ ! -f package.json ]; then
+          echo '{
+            "name": "besmi-mobile",
+            "version": "1.0.0",
+            "scripts": {
+              "build": "echo Build complete"
+            },
+            "dependencies": {
+              "@capacitor/core": "^5.0.0",
+              "@capacitor/cli": "^5.0.0",
+              "@capacitor/android": "^5.0.0"
+            }
+          }' > package.json
+        fi
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Install Capacitor CLI
+      run: npm install -g @capacitor/cli
+      
+    - name: Initialize Capacitor
+      run: |
+        if [ ! -f capacitor.config.ts ]; then
+          npx cap init besmi com.besmi.app --web-dir=dist
+        fi
+        
+    - name: Create web app files
+      run: |
+        mkdir -p dist
+        echo '<!DOCTYPE html>
+        <html>
+        <head>
+          <title>Besmi</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body>
+          <div style="text-align: center; padding: 50px;">
+            <h1>Besmi Lash Booking</h1>
+            <p>Professional lash artist booking platform</p>
+            <script>
+              window.location.href = "https://besmi.replit.app";
+            </script>
+          </div>
+        </body>
+        </html>' > dist/index.html
+        
+    - name: Add Android platform
+      run: |
+        if [ ! -d android ]; then
+          npx cap add android
+        fi
+        
+    - name: Update Android app configuration
+      run: |
+        if [ -f android/app/src/main/res/values/strings.xml ]; then
+          sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Besmi<\/string>/' android/app/src/main/res/values/strings.xml
+        fi
+        
+    - name: Sync Capacitor
+      run: npx cap sync android
+      
+    - name: Build APK
+      run: |
+        cd android
+        chmod +x gradlew
+        ./gradlew assembleDebug --no-daemon --stacktrace
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: besmi-android-apk
+        path: android/app/build/outputs/apk/debug/app-debug.apk
